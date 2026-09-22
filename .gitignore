@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+
+# Raw, un-redacted source captures. These contain recognizable faces and
+# client data; only the processed versions in public/shots may be published.
+Downloads/
+*-raw.png

@@ -1,0 +1,14 @@
+# Source files are stored with LF so Linux builds (Vercel) see what we wrote.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted. The résumé PDF is almost
+# all ASCII (ReportLab, base-14 fonts), so git's autodetect misreads it as text
+# and would corrupt it on checkout without this.
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
