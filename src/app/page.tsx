@@ -7,6 +7,7 @@ import About from "@/components/sections/About";
 import Contact from "@/components/sections/Contact";
 import { site } from "@/data/site";
 import { projects } from "@/data/projects";
+import { siteUrl } from "@/lib/url";
 
 /**
  * Structured data so a recruiter's search, and any AI summarising this page,
@@ -20,7 +21,7 @@ function JsonLd() {
     jobTitle: site.role,
     email: `mailto:${site.email}`,
     telephone: site.phone,
-    url: "https://nishantshekhar.dev",
+    url: siteUrl(),
     sameAs: [site.linkedin],
     address: { "@type": "PostalAddress", addressLocality: "Delhi", addressCountry: "IN" },
     worksFor: { "@type": "Organization", name: "Plateful Consulting" },

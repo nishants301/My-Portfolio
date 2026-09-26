@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { site } from "@/data/site";
+import { siteUrl } from "@/lib/url";
 import Nav from "@/components/ui/Nav";
 import "./globals.css";
 
@@ -20,7 +21,10 @@ const description =
   "AI Systems Engineer shipping production AI end-to-end as the sole engineer at a 150+ client consultancy — analytics infrastructure across 70+ outlets, four human-gated production agents, and an internal operations platform in daily use.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://nishantshekhar.dev"),
+  // Resolved from env so the Vercel URL works today and a custom domain
+  // works later without a code change. See src/lib/url.ts.
+  metadataBase: new URL(siteUrl()),
+  alternates: { canonical: "/" },
   title: {
     default: `${site.name} — ${site.role}`,
     template: `%s — ${site.name}`,
@@ -38,11 +42,21 @@ export const metadata: Metadata = {
     description,
     siteName: site.name,
     locale: "en_IN",
+    url: "/",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: `${site.name} — ${site.role}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: `${site.name} — ${site.role}`,
     description,
+    images: ["/og.png"],
   },
   robots: { index: true, follow: true },
 };

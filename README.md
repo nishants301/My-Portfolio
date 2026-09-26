@@ -102,11 +102,40 @@ Chromium download is blocked on this machine.
 
 ---
 
-## Still to add
+## Deploying
 
-- An OG share image at `public/og.png`, and the real domain in
-  `metadataBase` (`src/app/layout.tsx`) once it is chosen.
-- A live deployment.
+Hosted on Vercel, deployed from `main`. Vercel auto-detects Next.js, so there
+is no build configuration to supply.
+
+**First deploy:** vercel.com -> Add New -> Project -> import
+`nishants301/My-Portfolio`. Leave every setting at its default and deploy.
+
+**Custom domain:** Project -> Settings -> Domains -> add the domain, then point
+DNS at Vercel (an `A` record to `76.76.21.21` for an apex domain, or a `CNAME`
+to `cname.vercel-dns.com` for `www`). HTTPS is provisioned automatically.
+
+**After the domain is live**, set the canonical URL — otherwise canonical tags,
+the sitemap and Open Graph images keep pointing at the `.vercel.app` URL:
+
+```
+Settings -> Environment Variables -> Production
+NEXT_PUBLIC_SITE_URL = https://yourdomain.com
+```
+
+Then redeploy. Until it is set, `src/lib/url.ts` falls back to Vercel's own
+`VERCEL_PROJECT_PRODUCTION_URL`, so nothing is broken in the meantime.
+
+Preview deployments return `Disallow: /` from `robots.ts`, so they never
+compete with the real domain in search results.
+
+### Share image
+
+`public/og.png` (1200x630) is what unfurls in WhatsApp, LinkedIn and Slack.
+Regenerate it after changing the headline or the stats:
+
+```bash
+node scripts/make-og.mjs
+```
 
 ---
 
