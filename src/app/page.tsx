@@ -1,5 +1,4 @@
-import Hero from "@/components/sections/Hero";
-import Stats from "@/components/sections/Stats";
+import Cover from "@/components/sections/Cover";
 import Work from "@/components/sections/Work";
 import Approach from "@/components/sections/Approach";
 import Stack from "@/components/sections/Stack";
@@ -52,8 +51,7 @@ export default function Home() {
   return (
     <main>
       <JsonLd />
-      <Hero />
-      <Stats />
+      <Cover />
       <Work />
       <Approach />
       <Stack />
