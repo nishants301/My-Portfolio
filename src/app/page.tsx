@@ -1,4 +1,5 @@
 import Cover from "@/components/sections/Cover";
+import Contents from "@/components/sections/Contents";
 import Work from "@/components/sections/Work";
 import Approach from "@/components/sections/Approach";
 import Stack from "@/components/sections/Stack";
@@ -52,6 +53,7 @@ export default function Home() {
     <main>
       <JsonLd />
       <Cover />
+      <Contents />
       <Work />
       <Approach />
       <Stack />
