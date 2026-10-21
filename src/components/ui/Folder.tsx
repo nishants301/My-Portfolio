@@ -46,16 +46,7 @@ export default function Folder({
   children,
 }: FolderProps) {
   return (
-    // content-visibility lets the browser skip layout and paint for folders
-    // that are off-screen. With seven tall sections carrying ~50 per-glyph
-    // SVGs between them, this was the single largest Style & Layout cost.
-    // contain-intrinsic-size supplies a placeholder height so skipping cannot
-    // introduce scroll jump or CLS; `auto` lets it remember the real size once
-    // measured.
-    <section
-      id={id}
-      className="scroll-mt-24 px-3 [contain-intrinsic-size:auto_900px] [content-visibility:auto] sm:px-4"
-    >
+    <section id={id} className="scroll-mt-24 px-3 sm:px-4">
       <div className="mx-auto w-full max-w-[96rem]">
         {/* ---------- Tab ---------- */}
         <div className="flex items-end gap-1.5 pl-4 sm:pl-8">
