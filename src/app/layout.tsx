@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { site } from "@/data/site";
 import { siteUrl } from "@/lib/url";
 import Nav from "@/components/ui/Nav";
+import SmoothScroll from "@/components/motion/SmoothScroll";
 import "./globals.css";
 
 const inter = Inter({
@@ -78,6 +79,7 @@ export default function RootLayout({
         >
           Skip to work
         </a>
+        <SmoothScroll />
         <Nav />
         {children}
       </body>

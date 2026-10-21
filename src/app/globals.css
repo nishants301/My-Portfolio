@@ -29,6 +29,13 @@
   --font-mono: var(--font-mono-jb), ui-monospace, "SF Mono", monospace;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Folder-tab system (docs/spec.md §2) ---- */
+  /* Radii measured off the reference: 99px pills, 18px cards, 12px tabs. */
+  --radius-pill: 99px;
+  --radius-card: 18px;
+  --radius-tab: 12px;
+  --radius-inner: 11px;
 }
 
 :root {
