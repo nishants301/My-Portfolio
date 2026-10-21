@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { site, experience, education } from "@/data/site";
+import { site, experience, education, skillGroups } from "@/data/site";
 import Folder from "@/components/ui/Folder";
 import DrawHeading from "@/components/ui/DrawHeading";
 import Reveal from "@/components/motion/Reveal";
@@ -176,6 +176,28 @@ export default function About() {
               </Reveal>
             ))}
           </div>
+
+          {/* Stack. Lives inside the About folder rather than taking a chapter
+              of its own — a capability list is self-introduction, not a
+              standalone argument. */}
+          <Reveal className="mt-12 border-t border-rule pt-7">
+            <p className="mono-label">Stack</p>
+            <div className="mt-6 grid gap-x-10 gap-y-7 sm:grid-cols-2">
+              {skillGroups.map((g, i) => (
+                <div key={g.label}>
+                  <div className="flex items-baseline gap-3 border-b border-rule pb-2.5">
+                    <span className="font-mono text-xs text-signal">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <h4 className="text-sm tracking-tight text-ink">{g.label}</h4>
+                  </div>
+                  <p className="mt-4 text-[0.875rem] leading-relaxed text-ink-dim">
+                    {g.items.join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
 
           <Reveal className="mt-12 border-t border-rule pt-7">
             <p className="mono-label">Education & certification</p>

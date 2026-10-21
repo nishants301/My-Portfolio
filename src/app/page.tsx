@@ -1,8 +1,8 @@
 import Cover from "@/components/sections/Cover";
 import Contents from "@/components/sections/Contents";
 import Work from "@/components/sections/Work";
-import Approach from "@/components/sections/Approach";
-import Stack from "@/components/sections/Stack";
+import Process from "@/components/sections/Process";
+import Safeguards from "@/components/sections/Safeguards";
 import About from "@/components/sections/About";
 import Contact from "@/components/sections/Contact";
 import { site } from "@/data/site";
@@ -55,8 +55,8 @@ export default function Home() {
       <Cover />
       <Contents />
       <Work />
-      <Approach />
-      <Stack />
+      <Process />
+      <Safeguards />
       <About />
       <Contact />
     </main>
