@@ -47,11 +47,12 @@ export default function DrawHeading({
       const glyphs = gsap.utils.toArray<SVGTextElement>("[data-glyph]");
       if (!glyphs.length) return;
 
-      glyphs.forEach((g) => {
-        // A glyph's stroked outline is roughly 2.6x its advance width. Measuring
-        // per glyph keeps the draw speed even between an 'I' and a 'W'.
-        const len = g.getComputedTextLength() * 2.6 || 300;
-        gsap.set(g, { strokeDasharray: len, strokeDashoffset: len });
+      // Read every measurement first, then write. Interleaving
+      // getComputedTextLength() with style writes forces a synchronous layout
+      // per glyph; batching reads keeps it to one.
+      const lengths = glyphs.map((g) => g.getComputedTextLength() * 2.6 || 300);
+      glyphs.forEach((g, i) => {
+        gsap.set(g, { strokeDasharray: lengths[i], strokeDashoffset: lengths[i] });
       });
 
       gsap.to(glyphs, {

@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRef } from "react";
 import { site } from "@/data/site";
 import { DUR, EASE_CSS } from "@/lib/motion";
+import { useCanRender3D } from "@/lib/hooks";
 
-// Three.js stays out of the initial bundle; the cover renders complete without it.
+// Three.js stays out of the initial bundle. Critically, this is only rendered
+// once the capability check passes — `dynamic()` fetches its chunk the moment
+// the component renders, so gating *inside* HeroCanvas would still have pulled
+// ~170KB onto phones that never draw a single particle.
 const HeroCanvas = dynamic(() => import("@/components/three/HeroCanvas"), {
   ssr: false,
 });
@@ -35,27 +38,11 @@ function StatFolder({
   stat: (typeof site.stats)[number];
   i: number;
 }) {
-  const card = useRef<HTMLDivElement>(null);
-  const frame = useRef(0);
-
-  // Springy lift on hover, written straight to the node inside rAF so a row of
-  // these does not re-render React on every mousemove.
-  const lift = (up: boolean) => () => {
-    const el = card.current;
-    if (!el || frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      el.style.transform = up ? "translateY(-10px)" : "";
-      frame.current = 0;
-    });
-  };
-
+  // Pure CSS hover. A binary hover state does not need a rAF-written transform
+  // — the compositor handles this without any main-thread work, and it removes
+  // a pointer handler per card from hydration.
   return (
-    <div
-      className="min-w-0 flex-1"
-      onMouseEnter={lift(true)}
-      onMouseLeave={lift(false)}
-    >
-      {/* Tab */}
+    <div className="group min-w-0 flex-1">
       <div className="flex pl-3">
         <div className={`rounded-t-[12px] ${TONE[i]} px-3 py-1.5`}>
           <span className="font-mono text-[0.625rem] tracking-[0.14em] text-ink-faint">
@@ -64,14 +51,9 @@ function StatFolder({
         </div>
       </div>
 
-      {/* Body */}
       <div
-        ref={card}
-        style={{
-          transition: `transform ${DUR.hover}s ${EASE_CSS.spring}`,
-          willChange: "transform",
-        }}
-        className={`rounded-[18px] rounded-tl-none border border-rule ${TONE[i]} p-4 sm:p-5`}
+        style={{ transition: `transform ${DUR.hover}s ${EASE_CSS.spring}` }}
+        className={`rounded-[18px] rounded-tl-none border border-rule ${TONE[i]} p-4 transition-transform group-hover:-translate-y-2.5 sm:p-5`}
       >
         <div className="font-mono text-[clamp(1.5rem,3.2vw,2.5rem)] leading-none text-ink">
           {stat.value}
@@ -88,6 +70,8 @@ function StatFolder({
 }
 
 export default function Cover() {
+  const can3D = useCanRender3D();
+
   return (
     <section id="cover" className="scroll-mt-24 px-3 pt-20 sm:px-4">
       <div className="mx-auto w-full max-w-[96rem]">
@@ -109,9 +93,11 @@ export default function Cover() {
         {/* ---------- Body ---------- */}
         <div className="relative overflow-hidden rounded-[18px] rounded-tl-none border border-rule bg-surface pb-10 pt-[22px]">
           <div className="grid-field mask-radial absolute inset-0" aria-hidden />
-          <div className="absolute inset-y-0 right-0 w-full lg:left-[42%]" aria-hidden>
-            <HeroCanvas />
-          </div>
+          {can3D && (
+            <div className="absolute inset-y-0 right-0 w-full lg:left-[42%]" aria-hidden>
+              <HeroCanvas />
+            </div>
+          )}
           {/* Scrim so the display word always wins against stray particles. */}
           <div
             className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface via-surface/88 to-transparent lg:via-surface/70"

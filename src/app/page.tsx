@@ -54,10 +54,10 @@ export default function Home() {
       <JsonLd />
       <Cover />
       <Contents />
+      <About />
       <Work />
       <Process />
       <Safeguards />
-      <About />
       <Contact />
     </main>
   );

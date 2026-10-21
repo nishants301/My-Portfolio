@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { projects, type Project } from "@/data/projects";
 import Folder from "@/components/ui/Folder";
@@ -40,24 +40,9 @@ const FILTERS: Family[] = [
 ];
 
 function WorkCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
-  const card = useRef<HTMLDivElement>(null);
-  const frame = useRef(0);
-
-  const lift = (up: boolean) => () => {
-    const el = card.current;
-    if (!el || frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      el.style.transform = up ? "translateY(-8px)" : "";
-      frame.current = 0;
-    });
-  };
-
+  // CSS-only lift — see the note in Cover's StatFolder.
   return (
-    <article
-      className="group min-w-0"
-      onMouseEnter={lift(true)}
-      onMouseLeave={lift(false)}
-    >
+    <article className="group min-w-0">
       {/* Card tab, carrying the family label */}
       <div className="flex pl-4">
         <div className="rounded-t-[12px] border border-b-0 border-rule bg-ground/60 px-3 py-1.5">
@@ -68,12 +53,8 @@ function WorkCard({ project, onOpen }: { project: Project; onOpen: () => void })
       </div>
 
       <div
-        ref={card}
-        style={{
-          transition: `transform ${DUR.hover}s ${EASE_CSS.spring}`,
-          willChange: "transform",
-        }}
-        className="overflow-hidden rounded-[18px] rounded-tl-none border border-rule bg-ground/50"
+        style={{ transition: `transform ${DUR.hover}s ${EASE_CSS.spring}` }}
+        className="overflow-hidden rounded-[18px] rounded-tl-none border border-rule bg-ground/50 transition-transform group-hover:-translate-y-2"
       >
         <ShotFrame project={project} />
 

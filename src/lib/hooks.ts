@@ -43,7 +43,11 @@ export function useCanRender3D() {
         canvas.getContext("webgl") ||
         canvas.getContext("experimental-webgl");
       const cores = navigator.hardwareConcurrency ?? 4;
-      setCapable(Boolean(gl) && cores >= 4);
+      // Desktop only. The field is decorative, and on a throttled phone its
+      // bundle and per-frame cost push out LCP for no content gain — the
+      // headline is the thing that has to paint fast.
+      const wide = window.innerWidth >= 1024;
+      setCapable(Boolean(gl) && cores >= 4 && wide);
     } catch {
       setCapable(false);
     }
