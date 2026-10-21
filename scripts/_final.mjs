@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-const U = "https://my-portfolio-ba1qpd4ip-nshekhar301-8161s-projects.vercel.app";
+const U = "https://my-portfolio-hsirm5wcz-nshekhar301-8161s-projects.vercel.app";
 const b = await chromium.launch({ channel: "msedge" });
 for (const [w,h] of [[1440,900],[768,1024],[390,844]]) {
   const ctx = await b.newContext({ viewport:{width:w,height:h}, deviceScaleFactor:1 });

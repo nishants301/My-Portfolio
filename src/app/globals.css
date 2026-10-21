@@ -18,7 +18,11 @@
   /* Type */
   --color-ink: #ecedee;
   --color-ink-dim: #9ba1a6;
-  --color-ink-faint: #5f666c;
+  /* Raised from #5f666c, which failed WCAG AA on every folder tone
+     (2.68-3.42:1). This clears 4.5:1 against all five, including the
+     lightest. Compresses the gap to ink-dim slightly; readable beats
+     decorative for text that carries meaning. */
+  --color-ink-faint: #8a9096;
 
   /* Signal accent — phosphor green, used sparingly */
   --color-signal: #4ade80;
