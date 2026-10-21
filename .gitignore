@@ -11,3 +11,7 @@ next-env.d.ts
 # client data; only the processed versions in public/shots may be published.
 Downloads/
 *-raw.png
+.vercel
+
+# Reference capture scratch (third-party template screenshots)
+refs/
