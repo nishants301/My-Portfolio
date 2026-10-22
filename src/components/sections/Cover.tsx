@@ -94,13 +94,22 @@ export default function Cover() {
         <div className="relative overflow-hidden rounded-[18px] rounded-tl-none border border-rule bg-surface pb-10 pt-[22px]">
           <div className="grid-field mask-radial absolute inset-0" aria-hidden />
           {can3D && (
-            <div className="absolute inset-y-0 right-0 w-full lg:left-[42%]" aria-hidden>
+            // Bounded box anchored to the card's right half. `w-full` with
+            // `right-0` and `left-[42%]` was self-contradictory — an explicit
+            // width wins over `right`, so the box ran 42% past the card edge.
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 w-[58%] overflow-hidden"
+              aria-hidden
+            >
               <HeroCanvas />
             </div>
           )}
           {/* Scrim so the display word always wins against stray particles. */}
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface via-surface/88 to-transparent lg:via-surface/70"
+            // Explicit stops rather than Tailwind's implicit 50% `via`: the
+            // scrim must stay fully opaque across the whole text column and
+            // only then fade, otherwise particles sit behind the headline.
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,var(--color-surface)_0%,var(--color-surface)_42%,color-mix(in_srgb,var(--color-surface)_72%,transparent)_62%,transparent_86%)]"
             aria-hidden
           />
 

@@ -62,7 +62,10 @@ export default function HeroCanvas() {
     // sits on clean ground — particles behind type destroy legibility, and the
     // copy has to win that fight every time.
     <div
-      className="absolute inset-y-0 left-0 right-0 lg:left-[38%] lg:right-[-6%]"
+      // Fills whatever box the caller gives it, and nothing more. Positioning
+      // and sizing are the parent's job — this previously carried its own
+      // negative offsets, which bled the canvas outside any bounded container.
+      className="absolute inset-0 overflow-hidden"
       aria-hidden
     >
       <Canvas
