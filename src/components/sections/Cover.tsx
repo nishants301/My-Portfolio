@@ -131,23 +131,31 @@ export default function Cover() {
             </div>
           </div>
 
-          <div className="relative px-5 sm:px-8">
+          {/* The orb is painted *under* this block, so every element here
+              would otherwise swallow its pointer events — which is exactly
+              what broke drag and hover. CSS cannot make an element "below
+              visually but above for hit-testing", so the wrapper goes
+              pointer-transparent and each child opts back in. Elements also
+              need w-fit: a block-level h1 keeps a full-width box however
+              narrow its text, and that invisible box was stealing clicks far
+              out over the sphere. */}
+          <div className="pointer-events-none relative px-5 sm:px-8">
             {/* Display block */}
-            <p className="mono-label">
+            <p className="mono-label pointer-events-auto w-fit">
               {site.role} · Available for work
             </p>
 
-            <h1 className="display mt-6 max-w-[18ch] text-[clamp(2.75rem,8.5vw,7rem)]">
+            <h1 className="display pointer-events-auto mt-6 w-fit max-w-[18ch] text-[clamp(2.75rem,8.5vw,7rem)]">
               {site.headline[0]}
               <br />
               <span className="text-ink-dim">{site.headline[1]}</span>
             </h1>
 
-            <p className="mt-7 max-w-[56ch] text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-relaxed text-ink-dim">
+            <p className="pointer-events-auto mt-7 w-fit max-w-[56ch] text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-relaxed text-ink-dim">
               {site.subhead}
             </p>
 
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div className="pointer-events-auto mt-9 flex w-fit flex-wrap items-center gap-3">
               <Link
                 href="#work"
                 className="group inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-medium text-ground transition-colors hover:bg-signal"
@@ -172,7 +180,7 @@ export default function Cover() {
             </div>
 
             {/* ---------- Stat folders ---------- */}
-            <div className="mt-14 flex flex-col gap-4 sm:flex-row sm:gap-3">
+            <div className="pointer-events-auto mt-14 flex flex-col gap-4 sm:flex-row sm:gap-3">
               {site.stats.map((s, i) => (
                 <StatFolder key={s.label} stat={s} i={i} />
               ))}
