@@ -4,13 +4,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { site } from "@/data/site";
 import { DUR, EASE_CSS } from "@/lib/motion";
-import { useCanRender3D } from "@/lib/hooks";
 
-// Three.js stays out of the initial bundle. Critically, this is only rendered
-// once the capability check passes — `dynamic()` fetches its chunk the moment
-// the component renders, so gating *inside* HeroCanvas would still have pulled
-// ~170KB onto phones that never draw a single particle.
-const HeroCanvas = dynamic(() => import("@/components/three/HeroCanvas"), {
+// Dependency-free 2D canvas, so there is no bundle reason to gate it by
+// device as the old Three.js field required — it runs everywhere. Still
+// client-only, since it draws to a canvas.
+const StippleOrb = dynamic(() => import("@/components/orb/StippleOrb"), {
   ssr: false,
 });
 
@@ -70,8 +68,6 @@ function StatFolder({
 }
 
 export default function Cover() {
-  const can3D = useCanRender3D();
-
   return (
     <section id="cover" className="scroll-mt-24 px-3 pt-20 sm:px-4">
       <div className="mx-auto w-full max-w-[96rem]">
@@ -93,17 +89,18 @@ export default function Cover() {
         {/* ---------- Body ---------- */}
         <div className="relative overflow-hidden rounded-[18px] rounded-tl-none border border-rule bg-surface pb-10 pt-[22px]">
           <div className="grid-field mask-radial absolute inset-0" aria-hidden />
-          {can3D && (
-            // Bounded box anchored to the card's right half. `w-full` with
-            // `right-0` and `left-[42%]` was self-contradictory — an explicit
-            // width wins over `right`, so the box ran 42% past the card edge.
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-[58%] overflow-hidden"
-              aria-hidden
-            >
-              <HeroCanvas />
-            </div>
-          )}
+          {/* Bounded box anchored right. An explicit width wins over `right`,
+              so this must not also set `left`.
+
+              The box must stay roughly square: the orb's radius is derived
+              from min(width, height), so a tall narrow column renders a tiny
+              sphere adrift in empty space. Below md it is a square that bleeds
+              off the right edge (the card clips it); from md it becomes the
+              full-height right panel. Pointer events stay enabled — unlike the
+              old field, this one is meant to be grabbed. */}
+          <div className="absolute right-0 top-0 aspect-square w-[72%] translate-x-[16%] overflow-hidden opacity-70 md:inset-y-0 md:aspect-auto md:w-[58%] md:translate-x-0 md:opacity-100">
+            <StippleOrb />
+          </div>
           {/* Scrim so the display word always wins against stray particles. */}
           <div
             // Explicit stops rather than Tailwind's implicit 50% `via`: the

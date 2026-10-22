@@ -121,7 +121,7 @@ export default function Contact() {
 
       <div className="mt-16 flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-7">
         <p className="mono-label">© {new Date().getFullYear()} {site.name}</p>
-        <p className="mono-label">Next.js · GSAP · Three.js · No template</p>
+        <p className="mono-label">Next.js · GSAP · Canvas · No template</p>
       </div>
 
       {/* ---------- Copy toast ---------- */}
