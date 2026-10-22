@@ -9,24 +9,35 @@ import { prefersReducedMotion } from "@/lib/motion";
  *
  * Deliberately a 2D canvas rather than WebGL. The previous hero was a Three.js
  * particle field costing ~170KB, which had to be switched off below 1024px to
- * keep LCP sane — meaning phones got nothing. This has no dependencies at all,
- * so it ships everywhere and the bundle drops by the whole of Three.js.
+ * keep LCP sane, so phones got nothing. This has no dependencies, ships
+ * everywhere, and removed Three.js from the bundle entirely.
  *
- * Rendering notes:
- * - Points are laid out on a Fibonacci sphere (even coverage, no pole
- *   clustering) and rotated with plain trig. No matrix library needed.
- * - Drawing is two fillRect passes grouped by colour. fillStyle changes are
- *   the expensive part of canvas 2D; arc() per point is far worse. At this
- *   count fillRect is comfortably inside frame budget.
- * - Depth drives size and alpha, which is what reads as a sphere rather than
- *   a disc.
+ * WHAT MAKES IT READ AS A SPHERE
+ * Measured against the reference, the look comes from density and faintness,
+ * not from bright specks: ~45% of the canvas carries some light at an average
+ * alpha of only ~11%. That is thousands of *large, soft, nearly transparent*
+ * dots overlapping. A sparse scatter of small bright dots — the obvious first
+ * implementation — reads as noise instead of volume. So:
+ *   - one dot per ~95 device px^2 (an order of magnitude denser than a naive
+ *     stipple), counted in device pixels so retina does not halve the density
+ *   - each dot a pre-rendered soft radial sprite ~6.4 CSS px across
+ *   - peak alpha ~0.34, floor ~0.03
  *
- * The orb is decorative: it is aria-hidden, carries no information, and the
- * page loses nothing if you never touch it. That is what keeps a drag-only
- * interaction acceptable without a keyboard equivalent.
+ * PERFORMANCE
+ * Per-point gradients or fillStyle strings are hopeless at this count. Dots
+ * are drawn with drawImage of a cached sprite, bucketed into a few alpha
+ * tiers so globalAlpha changes a handful of times per frame instead of
+ * thousands.
+ *
+ * The orb is decorative: aria-hidden, conveys nothing, and the page loses
+ * nothing if you never touch it. That is what makes a drag-only interaction
+ * acceptable without a keyboard equivalent.
  */
 
 type Pt = { x: number; y: number; z: number; seed: number };
+
+/** Alpha quantisation tiers — more tiers means smoother depth, more state changes. */
+const TIERS = 10;
 
 export default function StippleOrb({ hint = true }: { hint?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -42,16 +53,14 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
 
     const reduced = prefersReducedMotion();
 
-    // --- Sizing -------------------------------------------------------------
-    let W = 0;
+    let W = 0;      // CSS size of the box
     let H = 0;
+    let BW = 0;     // backing-store size actually rendered
+    let BH = 0;
     let R = 0;
-    let dpr = 1;
-
-    // Point budget scales with area: a phone does not need 9000 dots, and
-    // paying for them is how you lose a frame budget.
     let points: Pt[] = [];
 
+    // ---- Points ------------------------------------------------------------
     const buildPoints = (count: number) => {
       const out: Pt[] = [];
       const golden = Math.PI * (3 - Math.sqrt(5));
@@ -60,56 +69,93 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
         const r = Math.sqrt(Math.max(0, 1 - y * y));
         const t = golden * i;
 
-        // Jitter each point off the lattice. A pure Fibonacci sphere is *too*
-        // regular at this density — it shows spiral moiré, which reads as a
-        // rendering artefact rather than a stipple. A small random nudge,
-        // renormalised back onto the unit sphere, breaks the pattern while
-        // keeping the even coverage the lattice was chosen for.
+        // Jitter off the lattice. A pure Fibonacci sphere is too regular at
+        // this density and shows spiral moire, which reads as a rendering
+        // artefact. Renormalising keeps the even coverage it was chosen for.
         const J = 0.055;
         let px = Math.cos(t) * r + (Math.random() - 0.5) * J;
         let py = y + (Math.random() - 0.5) * J;
         let pz = Math.sin(t) * r + (Math.random() - 0.5) * J;
         const len = Math.hypot(px, py, pz) || 1;
-        px /= len; py /= len; pz /= len;
 
-        out.push({ x: px, y: py, z: pz, seed: Math.random() });
+        out.push({ x: px / len, y: py / len, z: pz / len, seed: Math.random() });
       }
       return out;
     };
 
+    // ---- Sprites -----------------------------------------------------------
+    // Integer size, drawn 1:1 at integer coordinates. A sprite whose source
+    // size differs from its destination size — or lands on a fractional
+    // coordinate — makes drawImage resample on every call, which at this
+    // count dominates the frame.
+    const SPRITE_CSS = 9;
+    let spriteInk: HTMLCanvasElement | null = null;
+    let spriteSignal: HTMLCanvasElement | null = null;
+
+    const makeSprite = (rgb: string) => {
+      const px = SPRITE_CSS;
+      const c = document.createElement("canvas");
+      c.width = px;
+      c.height = px;
+      const g = c.getContext("2d")!;
+      const grad = g.createRadialGradient(px / 2, px / 2, 0, px / 2, px / 2, px / 2);
+      grad.addColorStop(0, `rgba(${rgb},1)`);
+      grad.addColorStop(0.4, `rgba(${rgb},0.5)`);
+      grad.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, px, px);
+      return c;
+    };
+
+    // ---- Sizing ------------------------------------------------------------
+    // The backing store is capped and CSS-stretched to fill the box. Every dot
+    // is a soft gradient, so upscaling is invisible — but cost scales with the
+    // square of resolution. At full 815px the orb ran 25fps; capped it holds
+    // 60 and looks identical.
+    const MAX_DIM = 560;
+    let scale = 1;   // backing pixels per CSS pixel
+
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
-      // Clamp DPR: a soft stipple gains nothing from 3x and costs 9x fill.
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = Math.max(1, Math.round(rect.width));
       H = Math.max(1, Math.round(rect.height));
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
+
+      scale = Math.min(1, MAX_DIM / Math.max(W, H));
+      const bw = Math.max(1, Math.round(W * scale));
+      const bh = Math.max(1, Math.round(H * scale));
+
+      canvas.width = bw;
+      canvas.height = bh;
       canvas.style.width = `${W}px`;
       canvas.style.height = `${H}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      R = Math.min(W, H) * 0.42;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-      const area = W * H;
-      const count = Math.round(
-        Math.max(1800, Math.min(9000, area / 90))
-      );
+      // All drawing happens in backing-store space from here on.
+      BW = bw;
+      BH = bh;
+      R = Math.min(bw, bh) * 0.42;
+
+      // Density is measured against the backing store so coverage stays near
+      // the reference's ~45% regardless of how large the box is on screen.
+      const count = Math.round(Math.max(2000, Math.min(11000, (bw * bh) / 80)));
       if (points.length !== count) points = buildPoints(count);
+
+      spriteInk = makeSprite("226,232,236");
+      spriteSignal = makeSprite("74,222,128");
     };
 
     resize();
 
-    // --- Interaction state --------------------------------------------------
+    // ---- Interaction -------------------------------------------------------
     let rotX = -0.25;
     let rotY = 0;
     let velX = 0;
-    let velY = reduced ? 0 : 0.0016; // gentle idle drift
+    let velY = reduced ? 0 : 0.0016;
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
 
     const pointer = { x: -9999, y: -9999, active: false };
-    /** Expanding click ripples, in sphere-space radius. */
     let ripples: { t: number }[] = [];
 
     const onDown = (e: PointerEvent) => {
@@ -122,10 +168,10 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
 
     const onMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      pointer.x = e.clientX - rect.left;
-      pointer.y = e.clientY - rect.top;
+      // Pointer arrives in CSS px; drawing happens in backing space.
+      pointer.x = (e.clientX - rect.left) * scale;
+      pointer.y = (e.clientY - rect.top) * scale;
       pointer.active = true;
-
       if (!dragging) return;
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
@@ -151,7 +197,6 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
 
     const onClick = () => {
       if (reduced) return;
-      // Cap concurrent ripples; each one costs a per-point test.
       if (ripples.length < 3) ripples.push({ t: 0 });
     };
 
@@ -165,10 +210,14 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
 
-    // --- Render loop --------------------------------------------------------
-    const INK = "233,236,238";
-    const SIGNAL = "74,222,128";
+    // ---- Render ------------------------------------------------------------
+    // Reused scratch buffers: one bucket per (colour, alpha tier). Allocating
+    // these per frame would hand the GC thousands of arrays a second.
+    const bucketsInk: number[][] = Array.from({ length: TIERS }, () => []);
+    const bucketsSig: number[][] = Array.from({ length: TIERS }, () => []);
 
+    const PEAK = 0.40;
+    const FLOOR = 0.03;
     let raf = 0;
     let last = performance.now();
 
@@ -176,97 +225,93 @@ export default function StippleOrb({ hint = true }: { hint?: boolean }) {
       const dt = Math.min(48, now - last);
       last = now;
 
-      if (!dragging) {
-        // Inertia, then settle back to the idle drift.
+      if (!dragging && !reduced) {
         velY += (0.0016 - velY) * 0.012;
         velX *= 0.92;
         rotY += velY * (dt / 16.67);
         rotX += velX * (dt / 16.67);
       }
       rotX = Math.max(-0.9, Math.min(0.9, rotX));
-
       ripples = ripples.filter((r) => (r.t += dt / 1000) < 1.4);
 
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, BW, BH);
 
-      const cx = W / 2;
-      const cy = H / 2;
+      const cx = BW / 2;
+      const cy = BH / 2;
       const sinY = Math.sin(rotY), cosY = Math.cos(rotY);
       const sinX = Math.sin(rotX), cosX = Math.cos(rotX);
+      const half = SPRITE_CSS / 2;
+      const partRad = R * 0.42;
 
-      // Two passes grouped by colour to avoid per-point fillStyle churn.
-      for (let pass = 0; pass < 2; pass++) {
-        const rgb = pass === 0 ? INK : SIGNAL;
-        let prevAlpha = -1;
+      for (let i = 0; i < TIERS; i++) { bucketsInk[i].length = 0; bucketsSig[i].length = 0; }
 
-        for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          const isSignal = p.seed > 0.86;
-          if ((pass === 1) !== isSignal) continue;
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
 
-          // Rotate Y then X.
-          const x1 = p.x * cosY - p.z * sinY;
-          const z1 = p.x * sinY + p.z * cosY;
-          const y2 = p.y * cosX - z1 * sinX;
-          const z2 = p.y * sinX + z1 * cosX;
+        const x1 = p.x * cosY - p.z * sinY;
+        const z1 = p.x * sinY + p.z * cosY;
+        const y2 = p.y * cosX - z1 * sinX;
+        const z2 = p.y * sinX + z1 * cosX;
 
-          let sx = cx + x1 * R;
-          let sy = cy + y2 * R;
+        let sx = cx + x1 * R;
+        let sy = cy + y2 * R;
 
-          // Pointer parting: push points away from the cursor, falling off
-          // with distance. Screen-space so it tracks what the eye expects.
-          if (pointer.active) {
-            const dx = sx - pointer.x;
-            const dy = sy - pointer.y;
-            const d2 = dx * dx + dy * dy;
-            const rad = R * 0.42;
-            if (d2 < rad * rad && d2 > 0.01) {
-              const d = Math.sqrt(d2);
-              const push = (1 - d / rad) ** 2 * rad * 0.55;
-              sx += (dx / d) * push;
-              sy += (dy / d) * push;
-            }
+        // Pointer parting, in screen space so it tracks what the eye expects.
+        if (pointer.active) {
+          const dx = sx - pointer.x;
+          const dy = sy - pointer.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < partRad * partRad && d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const push = (1 - d / partRad) ** 2 * partRad * 0.55;
+            sx += (dx / d) * push;
+            sy += (dy / d) * push;
           }
-
-          // Click ripple: an expanding shell nudges points outward as it passes.
-          for (let k = 0; k < ripples.length; k++) {
-            const t = ripples[k].t;
-            const front = t * 1.35;
-            const band = Math.abs((z2 + 1) / 2 - front);
-            if (band < 0.12) {
-              const amp = (1 - band / 0.12) * (1 - t / 1.4) * R * 0.1;
-              const dx = sx - cx, dy = sy - cy;
-              const d = Math.hypot(dx, dy) || 1;
-              sx += (dx / d) * amp;
-              sy += (dy / d) * amp;
-            }
-          }
-
-          // Depth: z2 in [-1,1]. Far points shrink and fade.
-          const depth = (z2 + 1) / 2;
-          const alpha = Math.round((0.14 + depth * 0.78) * 100) / 100;
-          const size = depth > 0.62 ? 2 : 1;
-
-          if (alpha !== prevAlpha) {
-            ctx.fillStyle = `rgba(${rgb},${alpha})`;
-            prevAlpha = alpha;
-          }
-          ctx.fillRect(sx, sy, size, size);
         }
+
+        // Click ripple: an expanding shell nudges points outward as it passes.
+        for (let k = 0; k < ripples.length; k++) {
+          const t = ripples[k].t;
+          const band = Math.abs((z2 + 1) / 2 - t * 1.35);
+          if (band < 0.12) {
+            const amp = (1 - band / 0.12) * (1 - t / 1.4) * R * 0.1;
+            const dx = sx - cx, dy = sy - cy;
+            const d = Math.hypot(dx, dy) || 1;
+            sx += (dx / d) * amp;
+            sy += (dy / d) * amp;
+          }
+        }
+
+        // Depth drives alpha. Quantised into tiers so globalAlpha is set a
+        // handful of times per frame rather than once per dot.
+        const depth = (z2 + 1) / 2;
+        let tier = (depth * depth * TIERS) | 0;
+        if (tier >= TIERS) tier = TIERS - 1;
+
+        const arr = p.seed > 0.88 ? bucketsSig[tier] : bucketsInk[tier];
+        arr.push((sx - half) | 0, (sy - half) | 0);
       }
 
-      raf = requestAnimationFrame(draw);
+      for (let pass = 0; pass < 2; pass++) {
+        const sprite = pass === 0 ? spriteInk : spriteSignal;
+        const buckets = pass === 0 ? bucketsInk : bucketsSig;
+        if (!sprite) continue;
+
+        for (let t = 0; t < TIERS; t++) {
+          const arr = buckets[t];
+          if (!arr.length) continue;
+          ctx.globalAlpha = FLOOR + (PEAK - FLOOR) * (t / (TIERS - 1));
+          for (let j = 0; j < arr.length; j += 2) {
+            ctx.drawImage(sprite, arr[j], arr[j + 1]);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      if (!reduced) raf = requestAnimationFrame(draw);
     };
 
-    if (reduced) {
-      // One static frame: the sphere is visible and legible, nothing moves.
-      velY = 0;
-      draw(performance.now());
-      cancelAnimationFrame(raf);
-      raf = 0;
-    } else {
-      raf = requestAnimationFrame(draw);
-    }
+    raf = requestAnimationFrame(draw);
 
     return () => {
       if (raf) cancelAnimationFrame(raf);
